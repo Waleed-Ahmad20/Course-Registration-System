@@ -3,6 +3,7 @@ const router = express.Router();
 const Course = require('../models/Course');
 const User = require('../models/User');
 const Registration = require('../models/Registration');
+const bcrypt = require('bcryptjs');
 const { isAuthenticated, isAdmin, isStudent } = require('../middleware/auth');
 
 router.get('/courses', isAuthenticated, async (req, res) => {
@@ -64,6 +65,35 @@ router.post('/courses', isAdmin, async (req, res) => {
         res.status(201).json(course);
     } catch (error) {
         res.status(400).json({ message: error.message });
+    }
+});
+
+router.post('/admin/students', isAdmin, async (req, res) => {
+    try {
+        const { rollNumber, name, email, department, password, completedCourses } = req.body;
+
+        const existingStudent = await User.findOne({ rollNumber });
+        if (existingStudent) {
+            return res.status(400).json({ message: 'Roll number already exists' });
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        const newStudent = new User({
+            rollNumber,
+            name,
+            email,
+            department,
+            password: hashedPassword,
+            role: 'student',
+            completedCourses: completedCourses || []
+        });
+
+        await newStudent.save();
+        res.status(201).json({ message: 'Student added successfully', student: newStudent });
+    } catch (error) {
+        console.error('Error creating student:', error);
+        res.status(500).json({ message: 'Server error' });
     }
 });
 

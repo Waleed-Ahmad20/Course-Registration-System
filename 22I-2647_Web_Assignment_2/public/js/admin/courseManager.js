@@ -11,9 +11,8 @@ class CourseManager {
 
     async loadCourses() {
         try {
-            const response = await fetch('/api/courses');
+            const response = await fetch('/api/courses', { credentials: 'include' });
             if (!response.ok) throw new Error('Failed to load courses');
-
             this.courses = await response.json();
             this.renderCourses();
         } catch (error) {
@@ -22,6 +21,13 @@ class CourseManager {
     }
 
     setupEventListeners() {
+        const addCourseBtn = document.getElementById('add-course-btn');
+        if (addCourseBtn) {
+            addCourseBtn.addEventListener('click', () => {
+                this.showCourseFormModal();
+            });
+        }
+
         const courseForm = document.getElementById('course-form');
         if (courseForm) {
             courseForm.addEventListener('submit', (event) => {
@@ -29,6 +35,30 @@ class CourseManager {
                 this.saveCourse();
             });
         }
+
+        const cancelCourseBtn = document.getElementById('cancel-course-btn');
+        if (cancelCourseBtn) {
+            cancelCourseBtn.addEventListener('click', () => {
+                this.closeCourseFormModal();
+            });
+        }
+
+        const cancelSeatsBtn = document.getElementById('cancel-seats-btn');
+        if (cancelSeatsBtn) {
+            cancelSeatsBtn.addEventListener('click', () => {
+                this.closeUpdateSeatsModal();
+            });
+        }
+
+        const closeModalButtons = document.querySelectorAll('.close-modal');
+        closeModalButtons.forEach(button => {
+            button.addEventListener('click', (event) => {
+                const modal = event.target.closest('.modal');
+                if (modal) {
+                    modal.style.display = 'none';
+                }
+            });
+        });
 
         document.addEventListener('click', (event) => {
             if (event.target.classList.contains('edit-course-btn')) {
@@ -70,17 +100,50 @@ class CourseManager {
                 this.addScheduleField();
             });
         }
+
+        window.addEventListener('click', (event) => {
+            if (event.target.classList.contains('modal')) {
+                event.target.style.display = 'none';
+            }
+        });
+    }
+
+    showCourseFormModal() {
+        const modal = document.getElementById('course-form-modal');
+        const form = document.getElementById('course-form');
+        form.reset();
+        form.removeAttribute('data-course-id');
+        document.getElementById('form-title').textContent = 'Add New Course';
+        const prereqContainer = document.getElementById('prerequisites-container');
+        const scheduleContainer = document.getElementById('schedule-container');
+        if (prereqContainer) {
+            const prereqList = prereqContainer.querySelector('.prerequisites-list');
+            if (prereqList) prereqList.innerHTML = '';
+        }
+        if (scheduleContainer) {
+            const scheduleList = scheduleContainer.querySelector('.schedule-list');
+            if (scheduleList) scheduleList.innerHTML = '';
+        }
+        if (modal) modal.style.display = 'block';
+    }
+
+    closeCourseFormModal() {
+        const modal = document.getElementById('course-form-modal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    closeUpdateSeatsModal() {
+        const modal = document.getElementById('update-seats-modal');
+        if (modal) modal.style.display = 'none';
     }
 
     renderCourses() {
         const container = document.getElementById('courses-container');
         if (!container) return;
-
         if (this.courses.length === 0) {
             container.innerHTML = '<p>No courses found</p>';
             return;
         }
-
         const html = `
         <div class="table-responsive">
           <table class="table table-striped">
@@ -123,7 +186,6 @@ class CourseManager {
           </table>
         </div>
       `;
-
         container.innerHTML = html;
     }
 
@@ -132,20 +194,17 @@ class CourseManager {
             const form = document.getElementById('course-form');
             const formData = new FormData(form);
             const courseData = {};
-
             formData.forEach((value, key) => {
                 if (key !== 'prerequisite' && key !== 'schedule') {
                     courseData[key] = value;
                 }
             });
-
             courseData.prerequisites = [];
             const prereqFields = document.querySelectorAll('.prerequisite-field');
             prereqFields.forEach(field => {
                 const value = field.value.trim();
                 if (value) courseData.prerequisites.push(value);
             });
-
             courseData.schedule = [];
             const scheduleRows = document.querySelectorAll('.schedule-row');
             scheduleRows.forEach(row => {
@@ -153,42 +212,34 @@ class CourseManager {
                 const startTime = row.querySelector('.schedule-start').value;
                 const endTime = row.querySelector('.schedule-end').value;
                 const room = row.querySelector('.schedule-room').value;
-
                 if (day && startTime && endTime && room) {
                     courseData.schedule.push({ day, startTime, endTime, room });
                 }
             });
-
             courseData.credits = Number(courseData.credits);
             courseData.totalSeats = Number(courseData.totalSeats);
             courseData.availableSeats = Number(courseData.availableSeats);
-
             const courseId = form.dataset.courseId;
             let url = '/api/courses';
             let method = 'POST';
-
             if (courseId) {
                 url = `/api/courses/${courseId}`;
                 method = 'PUT';
             }
-
             const response = await fetch(url, {
                 method,
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(courseData)
+                body: JSON.stringify(courseData),
+                credentials: 'include'
             });
-
             if (!response.ok) {
                 const error = await response.json();
                 throw new Error(error.message || 'Failed to save course');
             }
-
             this.showMessage('Course saved successfully', 'success');
-            form.reset();
-            form.removeAttribute('data-course-id');
-            document.getElementById('form-title').textContent = 'Add New Course';
+            this.closeCourseFormModal();
             this.loadCourses();
         } catch (error) {
             this.showMessage(`Error saving course: ${error.message}`, 'error');
@@ -197,15 +248,12 @@ class CourseManager {
 
     async editCourse(courseId) {
         try {
-            const response = await fetch(`/api/courses/${courseId}`);
+            const response = await fetch(`/api/courses/${courseId}`, { credentials: 'include' });
             if (!response.ok) throw new Error('Failed to load course details');
-
             const course = await response.json();
-
             const form = document.getElementById('course-form');
             form.dataset.courseId = courseId;
             document.getElementById('form-title').textContent = 'Edit Course';
-
             form.elements.courseCode.value = course.courseCode;
             form.elements.name.value = course.name;
             form.elements.description.value = course.description;
@@ -214,19 +262,22 @@ class CourseManager {
             form.elements.instructor.value = course.instructor;
             form.elements.totalSeats.value = course.totalSeats;
             form.elements.availableSeats.value = course.availableSeats;
-
-            document.getElementById('prerequisites-container').innerHTML = '';
-            document.getElementById('schedule-container').innerHTML = '';
-
-            course.prerequisites.forEach(prereq => {
-                this.addPrerequisiteField(prereq);
-            });
-
-            course.schedule.forEach(schedule => {
-                this.addScheduleField(schedule);
-            });
-
-            form.scrollIntoView({ behavior: 'smooth' });
+            const prereqContainer = document.querySelector('.prerequisites-list');
+            const scheduleContainer = document.querySelector('.schedule-list');
+            if (prereqContainer) prereqContainer.innerHTML = '';
+            if (scheduleContainer) scheduleContainer.innerHTML = '';
+            if (course.prerequisites) {
+                course.prerequisites.forEach(prereq => {
+                    this.addPrerequisiteField(prereq);
+                });
+            }
+            if (course.schedule) {
+                course.schedule.forEach(schedule => {
+                    this.addScheduleField(schedule);
+                });
+            }
+            const modal = document.getElementById('course-form-modal');
+            if (modal) modal.style.display = 'block';
         } catch (error) {
             this.showMessage(`Error editing course: ${error.message}`, 'error');
         }
@@ -235,11 +286,10 @@ class CourseManager {
     async deleteCourse(courseId) {
         try {
             const response = await fetch(`/api/courses/${courseId}`, {
-                method: 'DELETE'
+                method: 'DELETE',
+                credentials: 'include'
             });
-
             if (!response.ok) throw new Error('Failed to delete course');
-
             this.showMessage('Course deleted successfully', 'success');
             this.loadCourses();
         } catch (error) {
@@ -250,18 +300,14 @@ class CourseManager {
     showUpdateSeatsModal(courseId) {
         const course = this.courses.find(c => c._id === courseId);
         if (!course) return;
-
         const modal = document.getElementById('update-seats-modal');
         const form = document.getElementById('seat-update-form');
-
         form.dataset.courseId = courseId;
-        document.getElementById('course-name').textContent = course.name;
-        document.getElementById('course-code').textContent = course.courseCode;
+        document.getElementById('update-course-name').textContent = course.name;
+        document.getElementById('update-course-code').textContent = course.courseCode;
         document.getElementById('total-seats').value = course.totalSeats;
         document.getElementById('available-seats').value = course.availableSeats;
-
-        const modalInstance = new bootstrap.Modal(modal);
-        modalInstance.show();
+        if (modal) modal.style.display = 'block';
     }
 
     async updateSeats() {
@@ -270,22 +316,23 @@ class CourseManager {
             const courseId = form.dataset.courseId;
             const totalSeats = Number(document.getElementById('total-seats').value);
             const availableSeats = Number(document.getElementById('available-seats').value);
-
+            if (availableSeats > totalSeats) {
+                throw new Error('Available seats cannot exceed total seats');
+            }
             const response = await fetch(`/api/courses/${courseId}/seats`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ totalSeats, availableSeats })
+                body: JSON.stringify({ totalSeats, availableSeats }),
+                credentials: 'include'
             });
-
             if (!response.ok) {
                 const error = await response.json();
                 throw new Error(error.message || 'Failed to update seats');
             }
-
             this.showMessage('Seats updated successfully', 'success');
-            bootstrap.Modal.getInstance(document.getElementById('update-seats-modal')).hide();
+            this.closeUpdateSeatsModal();
             this.loadCourses();
         } catch (error) {
             this.showMessage(`Error updating seats: ${error.message}`, 'error');
@@ -293,9 +340,8 @@ class CourseManager {
     }
 
     addPrerequisiteField(value = '') {
-        const container = document.getElementById('prerequisites-container');
-        const index = container.children.length;
-
+        const container = document.querySelector('.prerequisites-list');
+        if (!container) return;
         const prereqField = document.createElement('div');
         prereqField.className = 'input-group mb-2';
         prereqField.innerHTML = `
@@ -305,18 +351,16 @@ class CourseManager {
           <i class="fa fa-times"></i>
         </button>
       `;
-
         container.appendChild(prereqField);
-
         prereqField.querySelector('.remove-field').addEventListener('click', () => {
             prereqField.remove();
         });
     }
 
     addScheduleField(data = {}) {
-        const container = document.getElementById('schedule-container');
+        const container = document.querySelector('.schedule-list');
+        if (!container) return;
         const index = container.children.length;
-
         const scheduleRow = document.createElement('div');
         scheduleRow.className = 'schedule-row border p-2 mb-2';
         scheduleRow.innerHTML = `
@@ -353,9 +397,7 @@ class CourseManager {
           </div>
         </div>
       `;
-
         container.appendChild(scheduleRow);
-
         scheduleRow.querySelector('.remove-schedule').addEventListener('click', () => {
             scheduleRow.remove();
         });
@@ -368,11 +410,9 @@ class CourseManager {
         ${message}
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
       `;
-
         const container = document.getElementById('alert-container');
         if (container) {
             container.appendChild(alertDiv);
-
             setTimeout(() => {
                 alertDiv.classList.remove('show');
                 setTimeout(() => alertDiv.remove(), 300);
