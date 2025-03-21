@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Course Registration - Login</title>
+    <link rel="stylesheet" href="../css/login.css">
+</head>
+
+<body>
+    <div class="login-container">
+        <div class="login-panel">
+            <div class="login-header">
+                <img src="/images/logo.png" alt="University Logo" class="logo">
+                <h1>Course Registration System</h1>
+            </div>
+
+            <div class="login-tabs">
+                <button class="tab-btn active" data-tab="student">Student</button>
+                <button class="tab-btn" data-tab="admin">Admin</button>
+            </div>
+
+            <div class="form-container">
+                <form id="student-login-form" class="login-form active">
+                    <div class="form-group">
+                        <label for="student-roll">Roll Number</label>
+                        <div class="input-wrapper">
+                            <input type="text" id="student-roll" placeholder="Enter your roll number" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="student-password">Password</label>
+                        <div class="input-wrapper">
+                            <input type="password" id="student-password" placeholder="Enter your password" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <button type="submit" class="btn-login">Login</button>
+                    </div>
+                    <div id="student-login-error" class="error-message"></div>
+                </form>
+
+                <form id="admin-login-form" class="login-form">
+                    <div class="form-group">
+                        <label for="admin-username">Username</label>
+                        <div class="input-wrapper">
+                            <input type="text" id="admin-username" placeholder="Enter your username" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="admin-password">Password</label>
+                        <div class="input-wrapper">
+                            <input type="password" id="admin-password" placeholder="Enter your password" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <button type="submit" class="btn-login">Login</button>
+                    </div>
+                    <div id="admin-login-error" class="error-message"></div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/auth.js"></script>
+</body>
+
+</html>

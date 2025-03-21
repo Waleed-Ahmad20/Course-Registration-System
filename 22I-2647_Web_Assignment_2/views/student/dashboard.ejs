@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Dashboard - Course Registration</title>
+    <link rel="stylesheet" href="/css/studentDashboard.css">
+</head>
+
+<body>
+    <div class="dashboard-container">
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <img src="/images/logo.png" alt="University Logo" class="logo">
+                <h2>Student Portal</h2>
+            </div>
+            <div class="user-info">
+                <p class="user-name" id="student-name">Loading...</p>
+                <p class="user-role" id="student-roll">Loading...</p>
+            </div>
+            <ul class="nav-links">
+                <li><a href="#" class="active" data-section="schedule">My Schedule</a></li>
+                <li><a href="#" data-section="course-search">Course Search</a></li>
+                <li><a href="#" data-section="prerequisites">Prerequisites</a></li>
+                <li><a href="#" data-section="notifications">Notifications</a></li>
+                <li><a href="#" id="logout-btn">Logout</a></li>
+            </ul>
+        </nav>
+        <main class="main-content">
+            <section id="schedule-section" class="active">
+                <h1>My Weekly Schedule</h1>
+                <div class="calendar-container">
+                    <div id="weekly-calendar" class="weekly-calendar"></div>
+                </div>
+                <div class="selected-courses">
+                    <h2>Selected Courses</h2>
+                    <div id="selected-courses-list"></div>
+                    <button id="register-courses-btn" class="btn-primary">Register All Courses</button>
+                </div>
+            </section>
+            <section id="course-search-section">
+                <h1>Course Search</h1>
+                <div class="course-search-container"></div>
+            </section>
+            <section id="prerequisites-section">
+                <h1>Course Prerequisites</h1>
+                <div class="prerequisites-container">
+                    <div class="course-select">
+                        <label for="course-select">Select a Course:</label>
+                        <select id="prerequisite-course-select">
+                            <option value="">Select a course to view prerequisites</option>
+                        </select>
+                    </div>
+                    <div id="prerequisites-visualizer" class="prerequisites-visualizer"></div>
+                </div>
+            </section>
+            <section id="notifications-section">
+                <h1>Notifications</h1>
+                <div class="notification-history">
+                    <h2>Notification History</h2>
+                    <div id="notification-list" class="notification-list"></div>
+                </div>
+            </section>
+        </main>
+    </div>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/js/common.js"></script>
+    <script src="/js/student/sessionManager.js"></script>
+    <script src="/js/student/calendar.js"></script>
+    <script src="/js/student/courseSearch.js"></script>
+    <script src="/js/student/prerequisiteVisualizer.js"></script>
+    <script src="/js/student/subscribe.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            fetch('/auth/me')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('student-name').textContent = data.user.name;
+                    document.getElementById('student-roll').textContent = `Roll: ${data.user.rollNumber}`;
+                })
+                .catch(error => console.error('Error loading user info:', error));
+            const navLinks = document.querySelectorAll('.nav-links a[data-section]');
+            const sections = document.querySelectorAll('main section');
+            navLinks.forEach(link => {
+                link.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    navLinks.forEach(l => l.classList.remove('active'));
+                    sections.forEach(s => s.classList.remove('active'));
+                    this.classList.add('active');
+                    const sectionId = this.dataset.section + '-section';
+                    document.getElementById(sectionId).classList.add('active');
+                    if (sectionId === 'course-search-section') {
+                        loadCourseSearch();
+                    }
+                });
+            });
+            function loadCourseSearch() {
+                const courseSearchContainer = document.querySelector('.course-search-container');
+                if (courseSearchContainer && !courseSearchContainer.dataset.loaded) {
+                    courseSearchContainer.innerHTML = `
+                        <div class="filters-container">
+                            <h2>Course Search</h2>
+                            <div class="search-bar">
+                                <input type="text" id="course-search" placeholder="Search by course code, name, or instructor">
+                            </div>
+                            <div class="filter-row">
+                                <div class="filter-group">
+                                    <label for="department-filter">Department</label>
+                                    <select id="department-filter">
+                                        <option value="">All Departments</option>
+                                    </select>
+                                </div>
+                                <div class="filter-group">
+                                    <label for="day-filter">Day</label>
+                                    <select id="day-filter">
+                                        <option value="">All Days</option>
+                                        <option value="Monday">Monday</option>
+                                        <option value="Tuesday">Tuesday</option>
+                                        <option value="Wednesday">Wednesday</option>
+                                        <option value="Thursday">Thursday</option>
+                                        <option value="Friday">Friday</option>
+                                    </select>
+                                </div>
+                                <div class="filter-group">
+                                    <label for="time-filter">Time</label>
+                                    <select id="time-filter">
+                                        <option value="">Any Time</option>
+                                        <option value="8-12">Morning (8AM-12PM)</option>
+                                        <option value="12-17">Afternoon (12PM-5PM)</option>
+                                        <option value="17-22">Evening (5PM-10PM)</option>
+                                    </select>
+                                </div>
+                                <div class="filter-group checkbox">
+                                    <input type="checkbox" id="seats-filter">
+                                    <label for="seats-filter">Show only courses with available seats</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="course-list" class="course-list"></div>
+                    `;
+                    courseSearchContainer.dataset.loaded = 'true';
+                    if (window.courseSearch) {
+                        window.courseSearch.init();
+                    } else {
+                        window.courseSearch = new CourseSearch();
+                    }
+                }
+            }
+            document.getElementById('logout-btn').addEventListener('click', (e) => {
+                e.preventDefault();
+                fetch('/auth/logout', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.message === 'Logged out successfully') {
+                            window.location.href = '/';
+                        }
+                    })
+                    .catch(error => console.error('Logout error:', error));
+            });
+        });
+    </script>
+</body>
+
+</html>
